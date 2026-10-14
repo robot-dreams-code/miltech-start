@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Перевірка налаштувань — Старт у MilTech</title>
+    <link rel="stylesheet" href="app/styles.css" />
+    <style>
+      .check { max-width: 1040px; margin: 0 auto; padding: var(--safe); display: grid; gap: 32px; }
+      .check h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); text-transform: uppercase; line-height: 1; }
+      .check h2 { font: 600 1.25rem/1.3 var(--font-body); letter-spacing: 0; margin-bottom: 12px; }
+      .status { padding: 16px 20px; border-radius: var(--radius); font-weight: 600; }
+      .status--ok { background: var(--green-soft); color: var(--green); }
+      .status--bad { background: var(--error-soft); border: 1px solid var(--error); }
+      .list { display: grid; gap: 6px; padding-left: 1.2em; }
+      .tbl { width: 100%; border-collapse: collapse; background: var(--white); border-radius: var(--radius); overflow: hidden; font-size: 0.9375rem; }
+      .tbl th, .tbl td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+      .tbl th { background: var(--graphite); color: var(--soft-white); font-weight: 600; }
+      .tag { display: inline-block; padding: 1px 10px; border-radius: var(--pill); font-size: 0.8125rem; white-space: nowrap; }
+      .tag--on { background: var(--green-soft); color: var(--green); }
+      .tag--soon { background: var(--yellow); }
+      .tag--off { background: var(--soft-white); color: var(--muted); }
+      .tag--err { background: var(--error-soft); color: var(--error); }
+      .scroll { overflow-x: auto; }
+      .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+      .controls label { display: grid; gap: 4px; font-size: 0.875rem; font-weight: 600; }
+      .controls input { min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; font: inherit; }
+      .profiles { display: grid; gap: 12px; }
+      @media (min-width: 900px) { .profiles { grid-template-columns: repeat(3, 1fr); } }
+      .profile { background: var(--white); border-radius: var(--radius); padding: 18px; display: grid; gap: 8px; align-content: start; }
+      .profile h3 { font: 600 1rem/1.3 var(--font-body); letter-spacing: 0; }
+    </style>
+  </head>
+  <body>
+    <main class="check" id="check">
+      <h1>Перевірка налаштувань</h1>
+      <p>Ця сторінка лише читає файли з папки <code>settings/</code> і показує, чи все гаразд. Після будь-яких змін просто оновіть її (F5).</p>
+    </main>
+
+    <script>
+      window.__settingsErrors = [];
+      window.addEventListener('error', function (e) {
+        window.__settingsErrors.push({ file: (e.filename || '').split('/').pop(), line: e.lineno, message: e.message });
+      });
+    </script>
+    <script src="settings/questions.js"></script>
+    <script src="settings/texts.js"></script>
+    <script src="settings/courses.js"></script>
+    <script src="app/engine.js"></script>
+    <script>
+      (function () {
+        var root = document.getElementById('check');
+        var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+        var add = function (html) { root.insertAdjacentHTML('beforeend', html); };
+
+        var syntax = window.__settingsErrors;
+        if (syntax.length || !window.ПИТАННЯ || !window.ТЕКСТИ || !window.КУРСИ) {
+          add('<div class="status status--bad" role="alert">Один із файлів налаштувань не читається.</div>');
+          add('<ul class="list">' + (syntax.length ? syntax.map(function (e) {
+            return '<li>Файл <code>' + esc(e.file) + '</code>' + (e.line ? ', рядок ' + e.line : '') + ': ' + esc(e.message) + '</li>';
+          }).join('') : '<li>Не знайдено один із файлів у папці settings/.</li>') + '</ul>');
+          add('<p>Найчастіше це пропущена кома між блоками, незакрита лапка " або дужка. Подивіться на вказаний рядок і рядок над ним.</p>');
+          return;
+        }
+
+        var settings = { questions: window.ПИТАННЯ, rules: window.ПРАВИЛА, texts: window.ТЕКСТИ, courses: window.КУРСИ };
+        var d = new Date();
+        var todayReal = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        var dirs = Object.keys(settings.texts.напрями);
+
+        add('<section class="controls"><label>Перевірити на дату<input type="date" id="day" value="' + todayReal + '"></label><p class="small muted">Наприклад, на день вебінару: які курси тоді ще будуть показуватися.</p></section>');
+        add('<div id="out" style="display:grid;gap:32px"></div>');
+
+        var profiles = [
+          { назва: 'ІТ-тестувальниця з досвідом', values: { who: 'it_qa', education: 'it_cs', skills: ['prog', 'python', 'testing', 'english'], practice: ['testing'], experience: 'y3plus', interests: ['tv', 'pz', 'bs'], platforms: ['air'], hands_or_code: 'code', role: 'check', workplace: 'computer', time: 'h6_10', goal: 'change_career' } },
+          { назва: 'Новачок без технічного досвіду', values: { who: 'nontech', education: 'nontech', skills: ['none'], practice: ['none'], experience: 'none', interests: ['mh', 'el'], platforms: ['any'], hands_or_code: 'physical', role: 'create', workplace: 'workshop', time: 'lt3', goal: 'change_career' } },
+          { назва: 'Ветеран, оператор БпЛА', values: { who: 'military', education: 'college', skills: ['radio'], practice: ['drone', 'front'], experience: 'y1_3', interests: ['bs', 'rt'], platforms: ['air', 'ew'], hands_or_code: 'physical', role: 'create', workplace: 'field', time: 'h3_6', goal: 'change_career' } },
+        ];
+
+        function render() {
+          var day = document.getElementById('day').value || todayReal;
+          var v = Engine.validateSettings(settings, day);
+          var html = '';
+          html += v.errors.length
+            ? '<div class="status status--bad" role="alert">Знайдено помилок: ' + v.errors.length + '. Тест може працювати неправильно — виправте їх.</div><ul class="list">' + v.errors.map(function (e) { return '<li>' + esc(e) + '</li>'; }).join('') + '</ul>'
+            : '<div class="status status--ok" role="status">Помилок немає — налаштування в порядку.</div>';
+          if (v.warnings.length) html += '<section><h2>Варто звернути увагу</h2><ul class="list">' + v.warnings.map(function (e) { return '<li>' + esc(e) + '</li>'; }).join('') + '</ul></section>';
+
+          // Курси
+          var rows = settings.courses.map(function (c) {
+            var status;
+            if (!c.показувати) status = '<span class="tag tag--off">Прихований</span>';
+            else if (!/^\d{4}-\d{2}-\d{2}$/.test(c.старт || '')) status = '<span class="tag tag--err">Помилка в даті</span>';
+            else if (c.старт < day) status = '<span class="tag tag--off">Старт минув</span>';
+            else if (!c.посилання) status = '<span class="tag tag--soon">Анонс без посилання</span>';
+            else status = '<span class="tag tag--on">Показується</span>';
+            var names = (c.напрями || []).map(function (x, i) { var t = settings.texts.напрями[x]; return (t ? esc(t.коротко) : '<span class="tag tag--err">' + esc(x) + '?</span>') + (i === 0 ? ' (основний)' : ''); }).join(', ');
+            return '<tr><td>' + esc(c.назва) + '</td><td>' + names + '</td><td>' + esc(c.рівень) + '</td><td>' + esc(c.датаТекстом || c.старт) + '</td><td>' + status + '</td></tr>';
+          }).join('');
+          html += '<section><h2>Курси (' + settings.courses.length + ')</h2><div class="scroll"><table class="tbl"><thead><tr><th>Назва</th><th>Напрями</th><th>Рівень</th><th>Старт</th><th>Статус на ' + esc(day) + '</th></tr></thead><tbody>' + rows + '</tbody></table></div></section>';
+
+          // Покриття напрямів
+          var max = Engine.maxPoints(settings.questions, dirs);
+          var cover = dirs.map(function (code) {
+            var active = settings.courses.filter(function (c) { return c.показувати && c.старт >= day && (c.напрями || []).indexOf(code) >= 0; });
+            var withLink = active.filter(function (c) { return c.посилання; }).length;
+            return '<tr><td>' + esc(code) + '</td><td>' + esc(settings.texts.напрями[code].назва) + '</td><td>' + max[code] + '</td><td>' + active.length + ' (з посиланням: ' + withLink + ')</td></tr>';
+          }).join('');
+          html += '<section><h2>Напрями</h2><div class="scroll"><table class="tbl"><thead><tr><th>Код</th><th>Назва</th><th>Максимум балів</th><th>Активних курсів</th></tr></thead><tbody>' + cover + '</tbody></table></div></section>';
+
+          // Пробні профілі
+          html += '<section><h2>Що побачать типові учасники</h2><p class="small muted" style="margin-bottom:12px">Результат для трьох вигаданих профілів на обрану дату — щоб одразу бачити, як зміни вплинули на рекомендації.</p><div class="profiles">' +
+            profiles.map(function (p) {
+              var r = Engine.compute(settings, { values: p.values, other: {}, skipped: [] }, day);
+              return '<div class="profile"><h3>' + esc(p.назва) + '</h3>' + (r.режим === 'дослідник' ? '<p class="small muted">Режим «Дослідник»</p>' : '') +
+                '<ol class="list">' + r.напрями.map(function (x) {
+                  return '<li><strong>' + esc(settings.texts.напрями[x.код].коротко) + '</strong> — ' + x.збіг + ' %' +
+                    (x.готовність ? ', ' + esc(settings.texts.рівні[x.готовність.рівень].назва.toLowerCase()) : '') +
+                    '<br><span class="small">' + (x.курс ? 'Курс: ' + esc(x.курс.курс.назва) + (x.курс.підходить === 'рекомендуємо' ? '' : ' (з підготовкою)') : 'Курсу немає — безкоштовні матеріали') + '</span></li>';
+                }).join('') + '</ol></div>';
+            }).join('') + '</div></section>';
+
+          document.getElementById('out').innerHTML = html;
+        }
+        document.getElementById('day').addEventListener('change', render);
+        render();
+      })();
+    </script>
+  </body>
+</html>
