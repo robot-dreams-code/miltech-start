@@ -350,7 +350,18 @@
       ${live
         ? extLink(c.посилання, R.детальніше, 'btn btn--lime lime-btn', `data-course="${esc(k.назва)}"`)
         : `<p>${esc(R.анонсТекст)}</p>${subscribe(dark)}`}
+      ${altCourseLine(d, c)}
     </div>`;
+  }
+
+  // Другий курс того самого напряму й рівня — «на вибір», якщо такий є
+  function altCourseLine(d, c) {
+    const R = T.результат;
+    const lvl = d.готовність ? d.готовність.рівень : 1;
+    const alt = E.courseCandidates(settings.courses, d.код, lvl, today(), T.посилання.мітка)
+      .find((x) => x.курс.назва !== c.курс.назва && x.посилання && x.підходить === c.підходить && x.курс.напрями[0] === d.код && x.курс.рівень === c.курс.рівень);
+    if (!alt) return '';
+    return `<p class="course__alt">${esc(R.абоНаВибір)} ${extLink(alt.посилання, alt.курс.назва, 'match__link', `data-course="${esc(alt.курс.назва)}"`)}${alt.курс.датаТекстом ? ` <span class="muted">(${startLabel(alt.курс)})</span>` : ''}</p>`;
   }
 
   // Відповіді текстом для таблиці статистики: { "Текст питання": ["Варіант", …] }. Поле «Інше» не надсилаємо — там може бути що завгодно.

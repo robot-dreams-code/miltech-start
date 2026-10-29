@@ -606,3 +606,6 @@ a.tile:focus-visible { outline: 2px solid var(--graphite); outline-offset: 3px; 
 .card__plate > * { min-width: 0; }
 .card__title h2 { font-size: clamp(1.5rem, 6.4vw, 3rem); overflow-wrap: break-word; hyphens: auto; }
 .plan .pill { white-space: normal; text-align: left; }
+.course__alt { border-top: 1px solid rgba(24, 25, 25, 0.12); padding-top: 12px; margin-top: 4px; }
+.dark .course__alt { border-top-color: rgba(229, 232, 236, 0.14); }
+.dark .course__alt .match__link { color: var(--soft-white); }

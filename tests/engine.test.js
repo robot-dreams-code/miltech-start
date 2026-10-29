@@ -32,8 +32,8 @@ test('Олена: ТВ і ПЗ рівноцінні, БС третій; гото
   assert.deepEqual(byCode(r), { ЕЛ: 0, БС: 50, РТ: 0, МХ: 0, ПЗ: 78, ТВ: 83, СІ: 13, РЗ: 18, КБ: 35, ДА: 30 });
   assert.deepEqual(r.напрями.map((d) => [d.код, d.група]), [['ТВ', 0], ['ПЗ', 0], ['БС', 1]]);
   assert.deepEqual(r.напрями.map((d) => d.готовність.рівень), [3, 3, 2]);
-  assert.deepEqual(r.напрями.map((d) => d.курс && d.курс.курс.назва), ['Drone Testing Engineer', 'C++ for Military Technology', 'Navigation System Engineering']);
-  assert.ok(r.напрями[0].курс.посилання.includes('utm_source=miltech_start'));
+  assert.deepEqual(r.напрями.map((d) => d.курс && d.курс.курс.назва), ['Тестування дронів', 'Linux для військових рішень', 'Інженерія навігаційних систем']);
+  assert.ok(!r.напрями[0].курс.посилання.includes('utm_'));
   assert.match(r.напрями[0].причини[0], /^Вам цікаво знайти слабке місце системи/);
   assert.match(r.напрями[0].причини[1], /^Ви вже пробували тестувати пристрої/);
   assert.deepEqual(r.напрями[0].готовність.підтягнути, ['паяти й збирати схеми, працювати з мультиметром']);
@@ -53,7 +53,15 @@ test('кібербезпека: пентест для того, хто вже в
   const r = run(A({ who: 'security', education: 'it_cs', skills: ['netsec', 'prog', 'python', 'english'], practice: ['ctf'],
     experience: 'y3plus', interests: ['kb'], platforms: ['info'], hands_or_code: 'code', role: 'check', workplace: 'computer', time: 'h6_10', goal: 'strengthen' }));
   assert.equal(r.напрями[0].код, 'КБ');
-  assert.equal(r.напрями[0].курс.курс.назва, 'Cybersecurity of Military Systems');
+  assert.equal(r.напрями[0].курс.курс.назва, 'Кібербезпека для військової сфери');
+});
+
+test('кілька відповідей у «Хто ви зараз?» не знижують відсотки, а лише додають бали', () => {
+  const one = byCode(run(A({ ...olena.values, who: ['it_qa'] })));
+  const many = byCode(run(A({ ...olena.values, who: ['it_qa', 'military', 'engineer'] })));
+  assert.deepEqual(one, byCode(run(olena)));
+  for (const d of Object.keys(one)) assert.ok(many[d] >= one[d], d);
+  assert.ok(many.РТ > one.РТ && many.ЕЛ > one.ЕЛ);
 });
 
 test('детермінованість: однакові відповіді — однаковий результат', () => {
@@ -150,13 +158,19 @@ test('напрям РТ: лише анонс без посилання; післ
 
 test('валідація відповідей і перемикання варіантів', () => {
   const q = (id) => S.questions.find((x) => x.id === id);
-  assert.equal(Engine.validateAnswer(q('who'), undefined), 'оберіть');
+  assert.equal(Engine.validateAnswer(q('who'), undefined), 'оберітьКілька');
+  assert.equal(Engine.validateAnswer(q('education'), undefined), 'оберіть');
   assert.equal(Engine.validateAnswer(q('practice'), []), 'оберітьКілька');
   assert.equal(Engine.validateAnswer(q('who'), 'other', ' '), 'уточніть');
   assert.equal(Engine.validateAnswer(q('who'), 'other', 'Дизайнер'), null);
   assert.deepEqual(Engine.toggle(q('practice'), ['drone', 'solder'], 'none'), ['none']);
   assert.deepEqual(Engine.toggle(q('practice'), ['none'], 'drone'), ['drone']);
-  assert.deepEqual(Engine.toggle(q('interests'), ['el', 'bs', 'rt'], 'mh'), ['el', 'bs', 'rt']);
+  // інтереси без обмеження кількості; «Ще не знаю» знімає решту
+  assert.deepEqual(Engine.toggle(q('interests'), ['el', 'bs', 'rt'], 'mh'), ['el', 'bs', 'rt', 'mh']);
+  assert.deepEqual(Engine.toggle(q('interests'), ['el', 'bs'], 'unknown'), ['unknown']);
+  // «Не техніка, а інформація» не поєднується з технікою
+  assert.deepEqual(Engine.toggle(q('platforms'), ['air', 'sea'], 'info'), ['info']);
+  assert.deepEqual(Engine.toggle(q('platforms'), ['info'], 'air'), ['air']);
 });
 
 test('перевірка налаштувань знаходить типові помилки людською мовою', () => {
