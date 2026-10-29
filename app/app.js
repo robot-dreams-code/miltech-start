@@ -505,8 +505,9 @@
     const primary = new Set(main.map((d) => d.код));
     const names = main.map((d) => T.напрями[d.код].коротко);
 
-    const kicker = explorer ? R.мітаДослідник : main.length > 1 ? fill(R.мітаРівноцінні, { n: main.length }) : R.мітаОдин;
-    const title = explorer ? R.дослідникЗаголовок : names.join(' і ');
+    const several = !explorer && main.length > 1;
+    const kicker = explorer || several ? R.мітка : R.мітаОдин;
+    const title = explorer ? R.дослідникЗаголовок : several ? fill(R.мітаРівноцінні, { n: main.length }) : names[0];
     const lead = explorer ? R.дослідникТекст : main.length > 1 ? R.поясненняРівноцінні : R.поясненняОдин;
 
     const mainCards = main.map((d, i) => {
@@ -549,7 +550,8 @@
       <div class="wrap rhead__in">
         <div class="rhead__text">
           <p class="rhead__kicker">${esc(kicker)}</p>
-          <h1 id="result-title" tabindex="-1">${esc(title)}</h1>
+          <h1 id="result-title" tabindex="-1"${several ? ' class="rhead__h1--small"' : ''}>${esc(title)}</h1>
+          ${several ? `<ul class="rhead__dirs">${main.map((d) => `<li><a href="#card-${d.код}">${esc(T.напрями[d.код].коротко)}</a><span>${d.збіг} %</span></li>`).join('')}</ul>` : ''}
           <p class="rhead__lead">${esc(lead)}</p>
         </div>
         ${explorer ? '' : chart(res, primary)}
