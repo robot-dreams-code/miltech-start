@@ -27,7 +27,7 @@
   const extLink = (href, text, cls, data = '') =>
     `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer" class="${cls}" ${data}>${esc(text)}${ICON.external}${newTab}</a>`;
   const logo = (onDark) =>
-    `<span class="logo"><img src="app/img/${onDark ? 'logo-light' : 'logo-dark'}.png" alt="robot_dreams" width="240" height="145"></span>`;
+    `<button type="button" class="logo" data-action="home" aria-label="robot_dreams — на головну тесту"><img src="app/img/${onDark ? 'logo-light' : 'logo-dark'}.png" alt="" width="240" height="145"></button>`;
 
   /* ---------- стан ---------- */
   let state = load() || fresh();
@@ -137,6 +137,12 @@
       <ol class="route__list">${items}</ol></div>`;
   }
 
+  // Головний курс напряму для плиток на головній: спершу курси з лендингом, де напрям основний, потім за пріоритетом і датою
+  function mainCourse(dir) {
+    return E.courseCandidates(settings.courses, dir, 3, today(), T.посилання.мітка).find((c) => c.посилання && c.курс.напрями[0] === dir)
+      || E.courseCandidates(settings.courses, dir, 3, today(), T.посилання.мітка).find((c) => c.посилання) || null;
+  }
+
   /* ---------- головна ---------- */
   function intro() {
     const v = T.вступ;
@@ -191,7 +197,13 @@
       <div class="wrap">
         <h3 class="dirs__title">${esc(v.напрямиЗаголовок)}</h3>
         <ol class="tiles">
-          ${dirs.map((d, i) => `<li class="tile" title="${esc(T.напрями[d].опис)}"><span class="tile__num">${nn(i + 1)}</span><span class="tile__name">${esc(T.напрями[d].коротко)}</span></li>`).join('')}
+          ${dirs.map((d, i) => {
+            const c = mainCourse(d);
+            const inner = `<span class="tile__num">${nn(i + 1)}</span><span class="tile__name">${esc(T.напрями[d].коротко)}</span>${c ? `<span class="tile__course">${esc(v.доКурсу)}: ${esc(c.курс.назва)} ${ICON.external}</span>` : ''}`;
+            return `<li>${c
+              ? `<a class="tile" href="${esc(c.посилання)}" target="_blank" rel="noopener noreferrer" title="${esc(T.напрями[d].опис)}" data-course="${esc(c.курс.назва)}">${inner}${newTab}</a>`
+              : `<div class="tile" title="${esc(T.напрями[d].опис)}">${inner}</div>`}</li>`;
+          }).join('')}
         </ol>
       </div>
     </section>
@@ -245,7 +257,8 @@
     const options = q.варіанти.map((o) => {
       const checked = chosen.includes(o.id);
       const disabled = atLimit && !checked && !o.незнаю && !o.виключний;
-      return `<label class="option option--${many ? 'many' : 'one'}${special(o) ? ' option--special' : ''}">
+      const solo = many && (o.незнаю || o.виключний); // знімає інші варіанти — показуємо як радіокнопку
+      return `<label class="option option--${many && !solo ? 'many' : 'one'}${special(o) ? ' option--special' : ''}">
         <input type="${many ? 'checkbox' : 'radio'}" name="${esc(q.id)}" value="${esc(o.id)}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
         <span class="mark" aria-hidden="true">${ICON.check}</span><span>${esc(o.текст)}</span></label>`;
     }).join('');
@@ -331,6 +344,66 @@
     return out;
   }
 
+  // «Переглянути всі збіги»: усі напрями від найбільшого збігу до найменшого, з курсом під рівень людини
+  function allMatches(res) {
+    const R = T.результат;
+    const shown = new Set(res.напрями.map((d) => d.код));
+    const ranked = [...res.усіБали].sort((a, b) => b.збіг - a.збіг || Number(b.обранийУІнтересах) - Number(a.обранийУІнтересах) || b.бали - a.бали || a.порядок - b.порядок);
+    const rows = ranked.map((sc, i) => {
+      const lvl = E.readiness(settings.questions, T, settings.rules, state.answers, sc.код).рівень;
+      const c = E.courseCandidates(settings.courses, sc.код, lvl, today(), T.посилання.мітка).find((x) => x.посилання)
+        || E.courseCandidates(settings.courses, sc.код, lvl, today(), T.посилання.мітка)[0];
+      const course = !c ? `<span class="muted">${esc(R.курсуНемає)}</span>`
+        : c.посилання ? extLink(c.посилання, c.курс.назва, 'match__link', `data-course="${esc(c.курс.назва)}"`)
+        : `<span>${esc(c.курс.назва)}</span> <span class="pill pill--soon">${esc(R.вРозробці)}</span>`;
+      return `<li class="match${shown.has(sc.код) ? ' match--shown' : ''}">
+        <span class="match__rank">${nn(i + 1)}</span>
+        <span class="match__name"><b>${esc(T.напрями[sc.код].назва)}</b><span class="match__bar" aria-hidden="true"><i style="width:${sc.збіг}%"></i></span></span>
+        <span class="match__pct">${sc.збіг} %</span>
+        <span class="match__course"><span class="muted">${esc(R.курсНапряму)}:</span> ${course}</span>
+      </li>`;
+    }).join('');
+    return `<details class="allmatch" data-allmatch>
+      <summary><span>${esc(R.усіЗбігиКнопка)}</span><span class="allmatch__count">${ranked.length}</span></summary>
+      <p class="muted">${esc(R.усіЗбігиТекст)}</p>
+      <ol class="matches">${rows}</ol>
+    </details>`;
+  }
+
+  // Форма тем для курсів: окремий блок поруч з акцією
+  function surveyUrl(res) {
+    const base = T.посилання.опитування;
+    const top = res.напрями[0];
+    const params = {
+      direction: top ? T.напрями[top.код].коротко : '',
+      directions: res.напрями.map((d) => T.напрями[d.код].коротко).join(', '),
+      source: 'miltech_start',
+    };
+    // Typeform читає приховані поля з частини після «#»; пробіли кодуємо як %20, а не «+»
+    const hash = Object.entries(params).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+    return `${base.split('#')[0]}#${hash}`;
+  }
+  function surveyBlock(res) {
+    if (!T.посилання.опитування) return '';
+    const S = T.опитування;
+    return `<section class="offer offer--dark dark" aria-labelledby="survey-title">
+      <div><h2 id="survey-title">${esc(S.заголовок)}</h2><p>${esc(S.текст)}</p></div>
+      ${extLink(surveyUrl(res), S.кнопка, 'btn btn--lime lime-btn', 'data-survey')}
+    </section>`;
+  }
+
+  // Акція (Skill Pack): показується, поки не вимкнена і не минула дата «до»
+  function promoBlock() {
+    const P = T.акція;
+    if (!P || !P.показувати || !P.посилання || (P.до && today() > P.до)) return '';
+    const tag = T.посилання.мітка;
+    const url = tag ? `${P.посилання}${P.посилання.includes('?') ? '&' : '?'}${tag}` : P.посилання;
+    return `<section class="offer offer--lime" aria-labelledby="promo-title">
+      <div>${P.мітка ? `<p class="promo__tag">${esc(P.мітка)}</p>` : ''}<h2 id="promo-title">${esc(P.заголовок)}</h2><p>${esc(P.текст)}</p></div>
+      ${extLink(url, P.кнопка, 'btn btn--dark', 'data-promo')}
+    </section>`;
+  }
+
   function result() {
     const R = T.результат;
     const res = E.compute(settings, state.answers, today());
@@ -389,12 +462,8 @@
       </article>`;
     }).join('');
 
-    const survey = T.посилання.опитування
-      ? `<section class="survey" aria-labelledby="survey-title">
-          <div><h2 id="survey-title">${esc(T.опитування.заголовок)}</h2><p>${esc(T.опитування.текст)}</p></div>
-          ${extLink(T.посилання.опитування, T.опитування.кнопка, 'btn btn--dark btn--big', 'data-survey')}
-        </section>`
-      : '';
+    const survey = surveyBlock(res);
+    const promo = promoBlock();
 
     return `${bar('result')}
     <section class="dark rhead" aria-labelledby="result-title">
@@ -407,7 +476,8 @@
     </section>
     <div class="wrap results">
       ${cards}
-      ${survey}
+      ${allMatches(res)}
+      ${promo || survey ? `<div class="offers${promo && survey ? ' offers--two' : ''}">${promo}${survey}</div>` : ''}
       <section class="closing" aria-labelledby="rate-title">
         <h2 id="rate-title">${esc(R.корисний)}</h2>
         <div class="row rating" role="group" aria-labelledby="rate-title">
@@ -447,7 +517,7 @@
 
   /* ---------- події ---------- */
   main.addEventListener('click', (e) => {
-    const t = e.target.closest('[data-action],[data-rate],[data-course],[data-survey],[data-subscribe],[data-teaser]');
+    const t = e.target.closest('[data-action],[data-rate],[data-course],[data-survey],[data-subscribe],[data-teaser],[data-promo]');
     if (!t) return;
     if (t.dataset.rate) {
       state.rated = t.dataset.rate;
@@ -459,6 +529,7 @@
     if (t.dataset.course) return track('course_clicked', { course: t.dataset.course });
     if ('survey' in t.dataset) return track('survey_clicked');
     if (t.dataset.subscribe) return track('subscribe_clicked', { channel: t.dataset.subscribe });
+    if ('promo' in t.dataset) return track('promo_clicked', { promo: 'skill_pack' });
     const q = settings.questions[state.i];
     switch (t.dataset.action) {
       case 'start':
@@ -482,6 +553,10 @@
         if (!state.answers.skipped.includes(q.id)) state.answers.skipped.push(q.id);
         next();
         break;
+      case 'home':
+        if (state.screen === 'intro') window.scrollTo({ top: 0, behavior: 'smooth' });
+        else go('intro');
+        break;
       case 'share': {
         const url = location.href.split('#')[0].split('?')[0];
         const done = () => { t.textContent = T.результат.скопійовано; };
@@ -491,6 +566,10 @@
       }
     }
   });
+
+  main.addEventListener('toggle', (e) => {
+    if (e.target.matches && e.target.matches('[data-allmatch]') && e.target.open) track('all_matches_opened');
+  }, true);
 
   main.addEventListener('change', (e) => {
     const input = e.target;

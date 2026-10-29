@@ -121,7 +121,7 @@
       scene += `<path d="${trees}L640 170Z" fill="#5d6063" stroke="none"/>`;
     }
     const hud = kind === 'air'
-      ? ['ALT 120 м', 'DIST 15,2 км', 'BAT 64 %']
+      ? ['ALT 120 м', 'DIST 2,4 км', 'BAT 64 %']
       : ['SPD 12 км/год', 'LINK 98 %', 'BAT 71 %'];
     return `<svg class="feed" viewBox="0 0 640 400" role="img" aria-label="${kind === 'air' ? 'Кадр із камери дрона' : 'Кадр із камери НРК'}" focusable="false">
       <defs>
