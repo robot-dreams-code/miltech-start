@@ -300,9 +300,30 @@
     </div>`;
   }
 
+  // Курс напряму, який поки занадто високий за рівнем: показуємо як наступний етап, а не як рекомендацію
+  function laterCourse(d) {
+    const lvl = d.готовність ? d.готовність.рівень : 1;
+    const all = E.courseCandidates(settings.courses, d.код, 3, today(), T.посилання.мітка).filter((x) => x.курс.рівень > lvl + 1);
+    return all.find((x) => x.посилання && x.курс.напрями[0] === d.код) || all.find((x) => x.посилання) || all[0] || null;
+  }
+
+  // «старт 23 листопада», але якщо дата словами («наступний потік — …») — без слова «старт»
+  const startLabel = (k) => (/^\d/.test(k.датаТекстом) ? fill(T.результат.старт, { дата: k.датаТекстом }) : esc(k.датаТекстом));
+
   function courseBlock(d, dark) {
     const R = T.результат;
     const c = d.курс;
+    const later = !c ? laterCourse(d) : null;
+    if (later) {
+      const k = later.курс;
+      return `<div class="course">
+        <ul class="pills"><li class="pill ${dark ? 'pill--outline' : 'pill--light'}">${esc(R.наступнийЕтап)}</li>${k.датаТекстом ? `<li class="pill pill--outline">${startLabel(k)}</li>` : ''}</ul>
+        <p class="muted">${esc(R.курс)}</p>
+        <p class="course__name">${esc(k.назва)}</p>
+        <p>${esc(R.пізнішеТекст)}</p>
+        ${later.посилання ? extLink(later.посилання, R.детальніше, `btn ${dark ? 'btn--ghost' : 'btn--white'}`, `data-course="${esc(k.назва)}"`) : ''}
+      </div>`;
+    }
     if (!c) {
       const mats = (T.безкоштовніМатеріали || []).filter((m) => m.посилання)
         .map((m) => `<li>${extLink(m.посилання, m.назва, '')}</li>`).join('');
@@ -317,7 +338,7 @@
     const live = !!c.посилання;
     const fit = `<li class="pill ${ready ? 'pill--lime' : dark ? 'pill--outline' : 'pill--light'}">${esc(ready ? R.рекомендуємо : R.зПідготовкою)}</li>`;
     const status = live
-      ? `<li class="pill pill--outline">${fill(R.старт, { дата: k.датаТекстом })}</li>`
+      ? `<li class="pill pill--outline">${startLabel(k)}</li>`
       : `<li class="pill pill--soon">${esc(R.вРозробці)}</li>`;
     return `<div class="course">
       <ul class="pills">${fit}${status}</ul>
@@ -348,7 +369,7 @@
   function allMatches(res) {
     const R = T.результат;
     const shown = new Set(res.напрями.map((d) => d.код));
-    const ranked = [...res.усіБали].sort((a, b) => b.збіг - a.збіг || Number(b.обранийУІнтересах) - Number(a.обранийУІнтересах) || b.бали - a.бали || a.порядок - b.порядок);
+    const ranked = rankAll(res);
     const rows = ranked.map((sc, i) => {
       const lvl = E.readiness(settings.questions, T, settings.rules, state.answers, sc.код).рівень;
       const c = E.courseCandidates(settings.courses, sc.код, lvl, today(), T.посилання.мітка).find((x) => x.посилання)
@@ -404,6 +425,55 @@
     </section>`;
   }
 
+  // Ранжування всіх напрямів — той самий порядок, що й у рушії
+  const rankAll = (res) => [...res.усіБали].sort((a, b) => b.збіг - a.збіг || Number(b.обранийУІнтересах) - Number(a.обранийУІнтересах) || b.бали - a.бали || a.порядок - b.порядок);
+
+  // Графік «як відповіді збігаються з напрямами»: п'ять найближчих, рекомендовані підсвічені
+  function chart(res, primary) {
+    const R = T.результат;
+    const shown = new Set(res.напрями.map((d) => d.код));
+    const rows = rankAll(res).slice(0, 5).map((sc) => {
+      const kind = primary.has(sc.код) ? 'main' : shown.has(sc.код) ? 'alt' : 'rest';
+      const tag = kind === 'main' ? R.мітаГоловний : kind === 'alt' ? R.мітаТакож : '';
+      return `<li class="chart__row chart__row--${kind}">
+        <span class="chart__name">${esc(T.напрями[sc.код].коротко)}${tag ? ` <em>${esc(tag)}</em>` : ''}</span>
+        <span class="chart__bar" aria-hidden="true"><i style="width:${Math.max(sc.збіг, 2)}%"></i></span>
+        <span class="chart__pct">${sc.збіг} %</span>
+      </li>`;
+    }).join('');
+    return `<figure class="chart">
+      <figcaption><b>${esc(R.графікЗаголовок)}</b><span>${esc(R.графікПояснення)}</span></figcaption>
+      <ol class="chart__rows">${rows}</ol>
+    </figure>`;
+  }
+
+  // План для напряму: де ви зараз → що вивчити → курс
+  function plan(d, dark, h) {
+    const R = T.результат;
+    const g = d.готовність;
+    const lvl = T.рівні[g ? g.рівень : 1];
+    return `<ol class="plan">
+      <li class="plan__step">
+        <span class="plan__num" aria-hidden="true">1</span>
+        <h${h}>${esc(R.крок1)}</h${h}>
+        ${lvl ? `<p class="plan__level">${esc(lvl.назва)}</p><p>${esc(lvl.текст)}</p>` : ''}
+        ${g && g.вжеЄ.length ? `<p><strong>${esc(R.вжеЄ)}:</strong> ${esc(g.вжеЄ.join('; '))}.</p>` : ''}
+        ${g && g.підтягнути.length ? `<p><strong>${esc(R.вартоПідтягнути)}:</strong> ${esc(g.підтягнути.join('; '))}.</p>` : ''}
+      </li>
+      <li class="plan__step">
+        <span class="plan__num" aria-hidden="true">2</span>
+        <h${h}>${esc(R.крок2)}</h${h}>
+        <ul class="plan__list">${d.далі.кроки.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+        ${d.далі.порада ? `<p class="muted">${esc(d.далі.порада)}</p>` : ''}
+      </li>
+      <li class="plan__step plan__step--course">
+        <span class="plan__num" aria-hidden="true">3</span>
+        <h${h}>${esc(R.крок3)}</h${h}>
+        ${courseBlock(d, dark)}
+      </li>
+    </ol>`;
+  }
+
   function result() {
     const R = T.результат;
     const res = E.compute(settings, state.answers, today());
@@ -419,46 +489,43 @@
       });
     }
     const explorer = res.режим === 'дослідник';
-    const top = res.напрями.filter((d) => d.група === 0).length;
-    const lead = explorer ? esc(R.дослідникТекст) : top >= 2 ? fill(R.рівноцінні, { n: top }) : esc(R.одинГоловний);
+    const main = res.напрями.filter((d, i) => explorer || i === 0 || d.група === 0);
+    const alts = res.напрями.filter((d) => !main.includes(d));
+    const primary = new Set(main.map((d) => d.код));
+    const names = main.map((d) => T.напрями[d.код].коротко);
 
-    const g0 = res.напрями[0] && res.напрями[0].готовність;
-    const lastCourse = res.напрями.map((d) => d.курс).find(Boolean);
-    const stops = [{ num: 'СТАРТ', title: R.мапаСтарт, sub: g0 ? T.рівні[g0.рівень].назва : '' }]
-      .concat(res.напрями.map((d, i) => ({ num: `НАПРЯМ ${nn(i + 1)}`, title: T.напрями[d.код].коротко, sub: explorer ? '' : `${d.збіг} % ${R.збіг.toLowerCase()}`, href: `#card-${i}` })))
-      .concat([{ num: 'ФІНІШ', title: lastCourse ? lastCourse.курс.назва : R.мапаБезКурсу, sub: lastCourse ? R.мапаФініш : '', href: '#card-0' }]);
-    const cards = res.напрями.map((d, i) => {
+    const kicker = explorer ? R.мітаДослідник : main.length > 1 ? fill(R.мітаРівноцінні, { n: main.length }) : R.мітаОдин;
+    const title = explorer ? R.дослідникЗаголовок : names.join(' і ');
+    const lead = explorer ? R.дослідникТекст : main.length > 1 ? R.поясненняРівноцінні : R.поясненняОдин;
+
+    const mainCards = main.map((d, i) => {
       const t = T.напрями[d.код];
-      const dark = i === 0 || (!explorer && d.група === 0);
-      const g = d.готовність;
-      const tag = !explorer && d.група > 0 ? `<ul class="pills"><li class="pill pill--light">${esc(d.доповнення ? R.вартоПодивитися : R.такожПідходить)}</li></ul>` : '';
-      const facts = !explorer ? `<div class="facts">
-          <div class="fact fact--dark"><span class="fact__label">${esc(R.збіг)}</span><span class="fact__value">${d.збіг} %</span></div>
-          <div class="fact fact--dark"><span class="fact__label">${esc(R.готовність)}</span><span class="fact__value">${esc(T.рівні[g.рівень].назва)}</span></div>
-          <div class="fact fact--lime"><span class="fact__label">${esc(R.курс)}</span><span class="fact__value">${esc(d.курс ? d.курс.курс.назва : 'Безкоштовні матеріали')}</span></div>
-        </div>` : '';
-      return `<article class="card" id="card-${i}" aria-labelledby="dir-${i}">
-        ${tag}
+      const dark = i === 0;
+      return `<article class="card" id="card-${d.код}" aria-labelledby="dir-${d.код}">
         <div class="card__plate ${dark ? 'card__plate--dark dark' : 'card__plate--light'}">
-          <div class="card__title"><p class="card__num" aria-hidden="true">${nn(i + 1)}</p><h2 id="dir-${i}">${esc(t.назва)}</h2><p class="muted">${esc(t.опис)}</p></div>
-          ${facts}
-          <div class="card__cols">
-            <div style="display:grid;gap:28px;align-content:start">
-              <section><h3>${esc(R.чомуВам)}</h3><ul>${d.причини.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></section>
-              ${g ? `<section><h3>${esc(R.готовність)}</h3>
-                <p>${esc(T.рівні[g.рівень].текст)}</p>
-                ${g.вжеЄ.length ? `<p><strong>${esc(R.вжеЄ)}:</strong> ${esc(g.вжеЄ.join('; '))}.</p>` : ''}
-                ${g.підтягнути.length ? `<p><strong>${esc(R.вартоПідтягнути)}:</strong> ${esc(g.підтягнути.join('; '))}.</p>` : ''}
-              </section>` : ''}
-            </div>
-            <section><h3>${esc(R.щоВивчити)}</h3>
-              <p>${esc(d.далі.вступ)}</p>
-              <ol>${d.далі.кроки.map((x) => `<li><span>${esc(x)}</span></li>`).join('')}</ol>
-              ${d.далі.порада ? `<p class="muted">${esc(d.далі.порада)}</p>` : ''}
-            </section>
+          <div class="card__title">
+            <ul class="pills"><li class="pill pill--lime">${esc(explorer ? R.мітаДосліджувати : R.мітаГоловний)}</li>${explorer ? '' : `<li class="pill pill--outline">${fill(R.збігТекст, { n: d.збіг })}</li>`}</ul>
+            <h2 id="dir-${d.код}">${esc(t.назва)}</h2>
+            <p class="muted">${esc(t.опис)}</p>
           </div>
-          ${courseBlock(d, dark)}
+          ${explorer ? '' : `<section class="why"><h3>${esc(R.чомуВам)}</h3><ul>${d.причини.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></section>`}
+          <section><h3 class="plan__title">${esc(R.планЗаголовок)}</h3>${plan(d, dark, 4)}</section>
         </div>
+      </article>`;
+    }).join('');
+
+    const altCards = alts.map((d) => {
+      const t = T.напрями[d.код];
+      const c = d.курс || laterCourse(d);
+      return `<article class="alt" id="card-${d.код}" aria-labelledby="dir-${d.код}">
+        <div class="alt__head">
+          <h3 id="dir-${d.код}">${esc(t.назва)}</h3>
+          <span class="alt__pct">${fill(R.збігТекст, { n: d.збіг })}</span>
+        </div>
+        <p class="muted">${esc(t.опис)}</p>
+        <div class="alt__why"><p><strong>${esc(R.чомуВам)}</strong></p><ul>${d.причини.slice(0, 2).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>
+        ${c ? `<p><strong>${esc(R.курсНапряму)}:</strong> ${esc(c.курс.назва)}</p>` : ''}
+        <details class="alt__more"><summary>${esc(R.показатиПлан)}</summary>${plan(d, false, 4)}</details>
       </article>`;
     }).join('');
 
@@ -469,13 +536,20 @@
     <section class="dark rhead" aria-labelledby="result-title">
       <div class="bgmap bgmap--soft">${A.tacmap()}</div>
       <div class="wrap rhead__in">
-        <h1 id="result-title" tabindex="-1">${esc(explorer ? R.дослідникЗаголовок : R.заголовок)}</h1>
-        <p class="rhead__lead">${lead}</p>
-        <div class="mapframe">${route(stops, res.напрями.length + 1, A.drone('mini'), true)}</div>
+        <div class="rhead__text">
+          <p class="rhead__kicker">${esc(kicker)}</p>
+          <h1 id="result-title" tabindex="-1">${esc(title)}</h1>
+          <p class="rhead__lead">${esc(lead)}</p>
+        </div>
+        ${explorer ? '' : chart(res, primary)}
       </div>
     </section>
     <div class="wrap results">
-      ${cards}
+      ${mainCards}
+      ${alts.length ? `<section class="alts" aria-labelledby="alts-title">
+        <div class="alts__head"><h2 id="alts-title">${esc(R.такожЗаголовок)}</h2><p class="muted">${esc(R.такожТекст)}</p></div>
+        <div class="alts__grid">${altCards}</div>
+      </section>` : ''}
       ${allMatches(res)}
       ${promo || survey ? `<div class="offers${promo && survey ? ' offers--two' : ''}">${promo}${survey}</div>` : ''}
       <section class="closing" aria-labelledby="rate-title">
@@ -569,6 +643,7 @@
 
   main.addEventListener('toggle', (e) => {
     if (e.target.matches && e.target.matches('[data-allmatch]') && e.target.open) track('all_matches_opened');
+    if (e.target.matches && e.target.matches('.alt__more') && e.target.open) track('alt_plan_opened', { direction: e.target.closest('.alt').id.replace('card-', '') });
   }, true);
 
   main.addEventListener('change', (e) => {

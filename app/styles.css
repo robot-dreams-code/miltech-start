@@ -171,9 +171,9 @@ img { display: block; max-width: 100%; }
 .card section > * + * { margin-top: 10px; }
 .card ul:not(.pills), .card ol { display: grid; gap: 6px; }
 .card .pills { display: flex; }
-.card ol { list-style: none; padding: 0; counter-reset: s; }
-.card ol li { counter-increment: s; display: grid; grid-template-columns: 32px 1fr; gap: 10px; align-items: baseline; }
-.card ol li::before { content: counter(s, decimal-leading-zero); font: 800 0.875rem/1 var(--font-head); }
+.card ol:not(.plan) { list-style: none; padding: 0; counter-reset: s; }
+.card ol:not(.plan) > li { counter-increment: s; display: grid; grid-template-columns: 32px 1fr; gap: 10px; align-items: baseline; }
+.card ol:not(.plan) > li::before { content: counter(s, decimal-leading-zero); font: 800 0.875rem/1 var(--font-head); }
 
 .course { border-radius: var(--radius-s); padding: 24px; display: grid; gap: 12px; }
 .card__plate--dark .course { background: var(--soft-black); }
@@ -534,3 +534,75 @@ a.tile:focus-visible { outline: 2px solid var(--graphite); outline-offset: 3px; 
 .match__link svg { width: 13px; height: 13px; }
 .survey-again { font-size: 0.9375rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .survey-again .match__link { color: var(--graphite); }
+
+/* ---------- Результат v4: графік збігів, план, інші напрями ---------- */
+.rhead__in { display: grid; gap: clamp(32px, 5vw, 56px); align-items: end; }
+@media (min-width: 1024px) { .rhead__in { grid-template-columns: 1.05fr 1fr; } }
+.rhead__kicker { font: 800 0.875rem/1 var(--font-head); text-transform: uppercase; letter-spacing: 0.06em; color: var(--lime); margin-bottom: 18px; }
+.rhead .rhead__text h1 { font-size: clamp(2.25rem, 5.6vw, 4.5rem); max-width: 16ch; text-wrap: balance; overflow-wrap: anywhere; }
+
+.chart { margin: 0; border-radius: 24px; padding: clamp(20px, 3vw, 32px); background: rgba(40, 40, 40, 0.78); border: 1px solid rgba(229, 232, 236, 0.1); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); color: var(--soft-white); }
+.chart figcaption { display: grid; gap: 6px; margin-bottom: 22px; }
+.chart figcaption b { font: 800 1rem/1.25 var(--font-head); text-transform: uppercase; letter-spacing: -0.01em; }
+.chart figcaption span { font-size: 0.875rem; color: var(--muted-dark); }
+.chart__rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.chart__row { display: grid; grid-template-columns: 1fr auto; gap: 6px 14px; align-items: center; }
+.chart__name { font-size: 0.9375rem; }
+.chart__name em { font-style: normal; font: 800 0.6875rem/1 var(--font-head); text-transform: uppercase; letter-spacing: 0.05em; padding: 4px 7px; border-radius: 5px; margin-left: 6px; vertical-align: 2px; white-space: nowrap; }
+.chart__row--main .chart__name em { background: var(--lime); color: var(--graphite); }
+.chart__row--alt .chart__name em { border: 1px solid rgba(229, 232, 236, 0.4); color: var(--soft-white); }
+.chart__bar { grid-column: 1 / -1; grid-row: 2; height: 10px; border-radius: 6px; background: rgba(229, 232, 236, 0.1); overflow: hidden; }
+.chart__bar i { display: block; height: 100%; border-radius: 6px; background: #6b6e71; }
+.chart__row--main .chart__bar i { background: var(--lime); }
+.chart__row--alt .chart__bar i { background: #e5e8ec; }
+.chart__row--rest .chart__name, .chart__row--rest .chart__pct { color: var(--muted-dark); }
+.chart__pct { font: 800 0.9375rem/1 var(--font-head); }
+.chart__row--main .chart__name { font-weight: 600; }
+
+.card .why ul { display: grid; gap: 6px; }
+.card__plate .why h3, .card__plate .plan__title { margin-bottom: 14px; }
+
+.plan { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; counter-reset: none; }
+@media (min-width: 1024px) { .plan { grid-template-columns: 1fr 1fr 1.15fr; } }
+.card ol.plan li.plan__step, .alt ol.plan li.plan__step { display: flex; flex-direction: column; gap: 10px; counter-increment: none; }
+.card ol.plan li.plan__step::before { content: none; }
+.plan__step { position: relative; border-radius: var(--radius-s); padding: 22px; background: var(--soft-white); }
+.dark .plan__step { background: var(--soft-black); }
+.plan__step h4 { font: 800 1rem/1.2 var(--font-head); text-transform: uppercase; letter-spacing: -0.01em; }
+.dark .plan__step h4 { color: var(--lime); }
+.plan__num { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font: 800 1rem/1 var(--font-head); background: var(--graphite); color: var(--lime); }
+.dark .plan__num { background: var(--lime); color: var(--graphite); }
+.plan__level { font: 800 1.25rem/1.15 var(--font-head); letter-spacing: -0.02em; }
+.plan__list { margin: 0; padding-left: 1.1em; display: grid; gap: 6px; }
+.card ul.plan__list { display: grid; }
+.plan__step--course .course { padding: 0; background: none !important; }
+.plan__step--course .course__name { font-size: clamp(1.125rem, 2.2vw, 1.375rem); }
+@media (min-width: 1024px) {
+  .plan__step:not(:last-child)::after { content: ''; position: absolute; top: 38px; right: -16px; width: 16px; height: 2px; background: var(--lime); }
+}
+
+.alts { display: grid; gap: 20px; }
+.alts__head h2 { font-size: clamp(1.5rem, 3.2vw, 2.25rem); text-transform: uppercase; line-height: 1.05; }
+.alts__head p { margin-top: 10px; max-width: 60ch; }
+.alts__grid { display: grid; gap: 16px; }
+@media (min-width: 900px) { .alts__grid { grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); align-items: start; } }
+.alt { background: var(--white); border-radius: var(--radius); padding: clamp(22px, 3vw, 32px); display: grid; gap: 12px; }
+.alt__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.alt__head h3 { font-size: clamp(1.25rem, 2.4vw, 1.5rem); line-height: 1.1; text-transform: uppercase; }
+.alt__head .pill { flex: none; }
+.alt__more { margin-top: 6px; border-top: 1px solid rgba(24, 25, 25, 0.12); padding-top: 14px; }
+.alt__more summary { cursor: pointer; font-weight: 600; list-style: none; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
+.alt__more summary::-webkit-details-marker { display: none; }
+.alt__more summary::after { content: '+'; font: 800 1.25rem/1 var(--font-head); }
+.alt__more[open] summary::after { content: '–'; }
+.alt__more .plan { margin-top: 12px; grid-template-columns: 1fr; }
+.alt__more .plan__step::after { content: none !important; }
+.card ol.plan, .alt ol.plan { gap: 16px; }
+.plan__step > * { margin: 0; }
+.plan__step > .plan__num { margin-bottom: 4px; }
+.alt__pct { flex: none; font: 800 0.875rem/1 var(--font-head); background: var(--soft-white); border-radius: 999px; padding: 8px 12px; }
+.alt__why ul { margin: 6px 0 0; padding-left: 1.1em; display: grid; gap: 4px; }
+.alt > * { margin: 0; }
+.card__plate > * { min-width: 0; }
+.card__title h2 { font-size: clamp(1.5rem, 6.4vw, 3rem); overflow-wrap: break-word; hyphens: auto; }
+.plan .pill { white-space: normal; text-align: left; }
